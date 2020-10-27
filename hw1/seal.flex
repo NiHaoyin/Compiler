@@ -63,15 +63,16 @@ char* hex2dec (char* hex){
   sprintf(res, "%d", num);
   return res;
 }
+
 // handle string
+int correct_string = 1;
 char* getstr (const char* str) {
   char *result;
-  int i = 1, j = 0;
-  int len = strlen(str);
+  int i = 0, j = 0;
   result = new char[MAX_STR_CONST];
 
-  while (i < len - 1) {
-    if (i < len-2 && str[i] == '\\') {
+  while (i < strlen(str)) {
+    if (i < strlen(str)-1 && str[i] == '\\') {
       if (str[i+1] == '\n') {
         result[j] = '\n';
         i += 2; 
@@ -83,18 +84,17 @@ char* getstr (const char* str) {
         i += 1;
       } else {
         i++;
-        while (i<len && str[i] != '\\') i++;
-        i ++;
-        j --;
+        while (i<strlen(str) && str[i] != '\\') i++;
+        i++;
+        j--;
       }
     } else {
       result[j] = str[i];
-      i ++;
+      i++;
     }
-    j ++;
+    j++;
   }
   result[j] = '\0';
-
   return result;
 }
 
@@ -140,14 +140,11 @@ char* getstr (const char* str) {
 <INITIAL>true {seal_yylval.boolean=1;return CONST_BOOL;}
 <INITIAL>false {seal_yylval.boolean=0;return CONST_BOOL;}
 <INITIAL>[|] {return ('|');}
-<INITIAL>[\(] {return ('(');}
-<INITIAL>[\)] {return (')');}
-<INITIAL>[{] {return ('{'); }
-<INITIAL>[}] {return ('}');}
 
  /* String1 */
 <INITIAL>["] {
   BEGIN STRING1;
+  correct_string = 1;
   yymore();
 }
  /* MEET space*/
@@ -157,7 +154,14 @@ char* getstr (const char* str) {
  /* Meet '\\0'*/
 <STRING1>\\\\0 {yymore();}
  /* Meet '\0'*/
-<STRING1>\\0 {strcpy(seal_yylval.error_msg, yytext); ;return ERROR;}
+<STRING1>(\\0) {
+  strcpy(seal_yylval.error_msg, yytext);
+  correct_string = 0;
+  return ERROR;}
+<STRING1>"\0" {
+  strcpy(seal_yylval.error_msg, yytext);
+  correct_string = 0;
+  return ERROR;}
  /* MEET '\n'*/
 <STRING1>[\n] {
   curr_lineno++;
@@ -167,7 +171,7 @@ char* getstr (const char* str) {
 <STRING1>["] {
   std::string input(yytext, yyleng);
   
-  // input = input.substr(1, input.length()-2);
+  input = input.substr(1, input.length()-2);
   
   if (yyleng > 256){
     BEGIN INITIAL;
@@ -175,7 +179,11 @@ char* getstr (const char* str) {
   }
   seal_yylval.symbol = stringtable.add_string(getstr(input.c_str()));
   BEGIN INITIAL;
-  return CONST_STRING;
+  if (correct_string){
+    return CONST_STRING;
+  }else{
+    return ERROR;
+  }
 }
  /* Meet the words that do not include ' " \0 */
 <STRING1>[^"`\0\n]+ {
@@ -227,9 +235,10 @@ char* getstr (const char* str) {
           BEGIN INITIAL;
         }
         }
-<COMMENTS>. {}
 <COMMENTS>[\n] {curr_lineno++;}
 <COMMENTS>[ ] {}
+<COMMENTS>. {}
+
  /*OBJECTID and TYPEID */
 <INITIAL>(Int|Float|Bool|String) {
     seal_yylval.symbol = idtable.add_string(yytext);
@@ -246,7 +255,7 @@ char* getstr (const char* str) {
    return CONST_INT;
  }
   /* CONST_FLOAT */
-<INITIAL>(0|[1-9][0-9]*)[.][0-9]+ {
+<INITIAL>(0|[1-9][0-9]*)[.]([0-9]+)+ {
    seal_yylval.symbol = floattable.add_string(yytext);
    return CONST_FLOAT;
 }
@@ -256,6 +265,11 @@ char* getstr (const char* str) {
    seal_yylval.symbol = inttable.add_string(hex2dec(yytext));
    return CONST_INT;
 }
+                        
+<INITIAL>[\(] {return ('(');}
+<INITIAL>[\)] {return (')');}
+<INITIAL>[{] {return ('{'); }
+<INITIAL>[}] {return ('}');}
 
 .	{
 	strcpy(seal_yylval.error_msg, yytext); 
