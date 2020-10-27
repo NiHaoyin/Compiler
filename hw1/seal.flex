@@ -52,9 +52,6 @@ extern YYSTYPE seal_yylval;
 // handle comments
 int comment_layer = 0;
 
-// handle '{' and '}'
-int brace_num = 0;
-
 // handle hex
 char* hex2dec (char* hex){
   int num;
