@@ -155,11 +155,15 @@ char* getstr (const char* str) {
   strcpy(seal_yylval.error_msg, yytext);
   correct_string = 0;
   return ERROR;}
-<STRING1>"\0" {
+<STRING1>\0 {
   strcpy(seal_yylval.error_msg, yytext);
   correct_string = 0;
   return ERROR;}
  /* MEET '\n'*/
+<STRING1>\\\n {
+  curr_lineno++;
+  yymore();
+}
 <STRING1>[\n] {
   curr_lineno++;
   yymore();
@@ -178,8 +182,6 @@ char* getstr (const char* str) {
   BEGIN INITIAL;
   if (correct_string){
     return CONST_STRING;
-  }else{
-    return ERROR;
   }
 }
  /* Meet the words that do not include ' " \0 */
